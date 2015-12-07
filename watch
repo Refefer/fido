@@ -1,0 +1,5 @@
+#!/bin/bash
+while [ 1 ]; do
+    inotifywait src/*.hs app/*.hs *.cabal -e modify -e move -e create -e delete 
+    stack build --fast
+done
