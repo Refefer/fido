@@ -20,7 +20,7 @@ app :: FileSystem -> Application
 app fs req respond = do
     let p = bsToChr . B.tail $ rawPathInfo req 
     inf <- retrieveUrl fs p
-    let k = fmap (\x -> (status200, x)) inf
-    let (status, d) = fromMaybe (status404, "") k
-    respond $ responseLBS status [(hContentType, "image/jpeg")] d
+    respond $ case inf of
+      Just lbs -> responseLBS status200 [(hContentType, "image/jpeg")] lbs 
+      Nothing  -> responseLBS status404 [(hContentType, "text/plain")] "404 - Not Found" 
 

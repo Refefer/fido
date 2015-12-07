@@ -8,6 +8,7 @@ module Lib
     , FileSystem
     ) where
 
+import Control.Exception (catch)
 import Control.Monad.Trans.Resource (runResourceT)
 import Crypto.Hash.MD5 (hash)
 import qualified Data.ByteString as B
@@ -15,8 +16,9 @@ import qualified Data.ByteString.Char8 as C8 (pack)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Lazy as L
 import Data.Char (chr)
-import Data.Conduit.Binary (sinkFile)
+import Data.Conduit.Binary (sinkFile, sinkLbs)
 import Data.Conduit
+import Data.Maybe (maybeToList)
 import Data.String (fromString)
 import Network.HTTP.Conduit
 import System.Directory (createDirectoryIfMissing)
@@ -32,27 +34,41 @@ newFS :: FilePath -> FileSystem
 newFS = FileSystem
 
 -- Downloads a given url to the provided path
-downloadFile :: URL -> FilePath -> IO ()
+downloadFile :: URL -> FilePath -> IO (Maybe L.ByteString)
 downloadFile url file = do
-  request <- parseUrl (url :: String)
-  manager <- newManager tlsManagerSettings
-  runResourceT $ do
-         response <- http request manager
-         responseBody response $$+- sinkFile file
+    request <- parseUrl (url :: String)
+    manager <- newManager tlsManagerSettings
+    resp <- run $ do
+      response <- http request manager
+      responseBody response $$+- fmap Just zss
+
+    return $ fmap snd resp
+
+    --return $ case resp of
+    --  Left  e -> Nothing
+    --  Right r -> Nothing --Just (fmap snd r)
+
+  where
+    zsf   = ZipSink (sinkFile file)
+    zslbs = ZipSink sinkLbs
+    zss   = getZipSink $ (\x y -> (x, y)) <$> zsf <*> zslbs
+    run f = (runResourceT f) `catch` handleExc
+
+handleExc :: HttpException -> IO (Maybe ((), L.ByteString))
+handleExc _ = return Nothing
 
 retrieveUrl :: FileSystem -> URL -> IO (Maybe L.ByteString)
 retrieveUrl fs url = do
-    exists <- fileExist path
+    exists   <- fileExist path
     contents <- if exists 
-                then L.readFile path
+                then fmap Just (L.readFile path)
                 else retUrl
-    return $ Just contents
+    return contents
   where
     (rd, path) = makeFilePath fs url
     retUrl     = do
         createDirectoryIfMissing True rd
         downloadFile url path
-        L.readFile path
 
 -- Builds the 
 makeFilePath :: FileSystem -> String -> (FilePath, FilePath)
