@@ -34,36 +34,28 @@ newFS :: FilePath -> FileSystem
 newFS = FileSystem
 
 -- Downloads a given url to the provided path
-downloadFile :: URL -> FilePath -> IO (Maybe L.ByteString)
+downloadFile :: URL -> FilePath -> IO (Maybe FilePath)
 downloadFile url file = do
     request <- parseUrl (url :: String)
     manager <- newManager tlsManagerSettings
-    resp <- run $ do
+    run $ do
       response <- http request manager
-      responseBody response $$+- fmap Just zss
-
-    return $ fmap snd resp
-
-    --return $ case resp of
-    --  Left  e -> Nothing
-    --  Right r -> Nothing --Just (fmap snd r)
+      responseBody response $$+- sinkFile file
+      return $ Just file
 
   where
-    zsf   = ZipSink (sinkFile file)
-    zslbs = ZipSink sinkLbs
-    zss   = getZipSink $ (\x y -> (x, y)) <$> zsf <*> zslbs
     run f = (runResourceT f) `catch` handleExc
 
-handleExc :: HttpException -> IO (Maybe ((), L.ByteString))
+handleExc :: HttpException -> IO (Maybe FilePath)
 handleExc _ = return Nothing
 
-retrieveUrl :: FileSystem -> URL -> IO (Maybe L.ByteString)
+retrieveUrl :: FileSystem -> URL -> IO (Maybe FilePath)
 retrieveUrl fs url = do
-    exists   <- fileExist path
-    contents <- if exists 
-                then fmap Just (L.readFile path)
-                else retUrl
-    return contents
+    exists <- fileExist path
+    path   <- if exists 
+              then return $ Just path
+              else retUrl
+    return path
   where
     (rd, path) = makeFilePath fs url
     retUrl     = do
