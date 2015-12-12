@@ -2,10 +2,9 @@
 
 module Lib
     ( bsToChr
-    , newFS
     , retrieveUrl
     , URL
-    , FileSystem
+    , FileSystem(..)
     ) where
 
 import Control.Exception (catch)
@@ -27,11 +26,9 @@ import System.Posix.Files (fileExist)
 
 type URL = String
 data FileSystem = FileSystem { directory :: FilePath
+                             , urlfrag   :: String
                              }
                              deriving (Show, Eq)
-
-newFS :: FilePath -> FileSystem
-newFS = FileSystem
 
 -- Downloads a given url to the provided path
 downloadFile :: URL -> FilePath -> IO (Maybe FilePath)
@@ -64,7 +61,7 @@ retrieveUrl fs url = do
 
 -- Builds the 
 makeFilePath :: FileSystem -> String -> (FilePath, FilePath)
-makeFilePath (FileSystem dir) url = (rootdir, rootdir </> hashed)
+makeFilePath (FileSystem dir _) url = (rootdir, rootdir </> hashed)
   where
     hashed   = bsToChr . encode . hash $ C8.pack url
     (d1, xs) = splitAt 2 hashed
