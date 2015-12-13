@@ -13,7 +13,7 @@ To Use
 
 Using fido is very simple.  Simply specify the serving port and a list of download zones:
 
-    fido -p 3456 '/data/images/zone1=>zone1' '/data/images/zone2'
+    fido -p 3456 '/data/images/zone1=>zone1' '/data/images/zone2=>zone2'
 
 and then hit the desired endpoint:
     
