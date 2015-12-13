@@ -3,6 +3,7 @@ module Main where
 
 import Data.String (IsString)
 import Data.Maybe (fromMaybe)
+import Data.List (isPrefixOf)
 import qualified Data.Map.Strict as Map
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
@@ -42,24 +43,30 @@ plain a = responseLBS status200 textPlain a
 ping :: IO Response
 ping = return $ plain "pong"
 
+ret404 = responseLBS status404 textPlain "404 - Not Found" 
+
 download :: FileSystem -> URL -> IO Response
 download fs path = do
   inf <- retrieveUrl fs path
   return $ case inf of
     Just path -> responseFile status200 imageJpeg path Nothing
-    Nothing   -> responseLBS status404 textPlain "404 - Not Found" 
+    Nothing   -> ret404
 
 app :: [FileSystem] -> Application
 app fss req respond = do
     let p = bsToChr . B.tail $ rawPathInfo req 
     let (ns, path) = break (== '/') p
-    resp <- dispatch ns (tail path)
+    resp <- dispatch p ns (tail path)
     respond resp
   where
-    dispatch "ping" _ = ping
-    dispatch ns path = download (lookupFS ns) path
+    dispatch p ns path
+      | p == "ping" = ping
+      | isPrefixOf "http" p = download (head fss) p
+      | otherwise = case Map.lookup ns urlMap of
+          Just fs -> download fs path
+          Nothing -> return ret404
+
     urlMap = Map.fromList $ fmap (\fs -> (urlfrag fs, fs)) fss
-    lookupFS n = fromMaybe (head fss) $ Map.lookup n urlMap
 
 -- Parser options via applicative
 settings :: Parser Settings 
@@ -70,7 +77,7 @@ settings = Settings
    <> help "Port to run fido on" )
   <*> many (argument readCache
     ( metavar "CACHES" 
-   <> help "Path to the directory for storing the files" ))
+   <> help "Caches in the format of /path/to/cache=>url_namespace" ))
 
 main = do
     s <- execParser opts
