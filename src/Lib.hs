@@ -59,13 +59,12 @@ retUrl url = do
 -- Builds the 
 makeFilePath :: URL -> App (FilePath, FilePath)
 makeFilePath url = do
-    dir <- asks directory
-    let rootdir  = dir </> d1 </> d2
-    return (rootdir, rootdir </> hashed)
- where
-    let hashed   = bsToChr . encode . hash $ C8.pack url
-    let (d1, xs) = splitAt 2 hashed
-    let d2       = take 2 xs
+  dir <- asks directory
+  let hashed   = bsToChr . encode . hash $ C8.pack url
+  let (d1, xs) = splitAt 2 hashed
+  let d2       = take 2 xs
+  let rootdir  = dir </> d1 </> d2
+  return (rootdir, rootdir </> hashed)
 
 bsToChr :: B.ByteString -> String
 bsToChr  = map (chr . fromEnum) . B.unpack
