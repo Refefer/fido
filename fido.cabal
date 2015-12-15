@@ -26,6 +26,7 @@ library
                      , directory
                      , filepath
                      , http-conduit
+                     , mtl
                      , resourcet
                      , system-fileio
                      , unix
