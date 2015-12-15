@@ -40,7 +40,6 @@ newtype App a = App { unApp :: ReaderT FileSystem IO a
                                , Monad
                                , MonadIO
                                , MonadReader FileSystem
-                               , MonadTrans
                                )
 
 retrieveUrl :: FileSystem -> URL -> IO (Maybe FilePath)
@@ -51,7 +50,7 @@ retUrl url = do
     (rd, path) <- makeFilePath url
     exists <- liftIO $ fileExist path
     path   <- if exists 
-              then lift $ Just path
+              then return $ Just path
               else do
         liftIO $ createDirectoryIfMissing True rd *> downloadFile url path
     return path
