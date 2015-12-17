@@ -16,10 +16,10 @@ import Options.Applicative
 
 import Lib
 
-readCache :: ReadM FileSystem
+readCache :: ReadM Zone 
 readCache = eitherReader $ \x -> do
     case (split x) of
-      Just (left, right) -> Right $ FileSystem left right
+      Just (left, right) -> Right $ Zone left right
       _                  -> Left "Format is /path/on/disk=>url"
   where
     index [] _ = Nothing
@@ -30,8 +30,14 @@ readCache = eitherReader $ \x -> do
       idx <- index hs 0
       return (take (idx - 1) hs, drop (idx + 1) hs)
 
+data Zone = Zone { path :: FilePath
+                 , url :: String
+                 } deriving (Show, Eq)
+
 data Settings = Settings { port :: Int
-                         , caches :: [FileSystem]
+                         , g_cache :: Maybe FilePath
+                         , copyGlobal :: Bool
+                         , zones :: [Zone]
                          } deriving (Show, Eq)
 
 textPlain = [(hContentType, "text/plain")]
@@ -75,6 +81,14 @@ settings = Settings
     ( long "port"
    <> short 'p'
    <> help "Port to run fido on" )
+  <*> optional (strOption
+    ( long "global-cache"
+   <> short 'g'
+   <> help "Optional global read cache for files" ))
+  <*> switch
+    ( long "global-to-local"
+   <> short 'c'
+   <> help "Copy global to local")
   <*> many (argument readCache
     ( metavar "CACHES" 
    <> help "Caches in the format of /path/to/cache=>url_namespace" ))
@@ -82,8 +96,11 @@ settings = Settings
 main = do
     s <- execParser opts
     let p = port s
+    let gc = g_cache s
+    let cg = copyGlobal s
+    let fss = [FileSystem p z gc cg | Zone p z <- zones s]
     putStrLn $ "Listening on port " ++ show p
-    run p (app (caches s))
+    run p (app fss)
   where
     opts = info (helper <*> settings)
       ( fullDesc

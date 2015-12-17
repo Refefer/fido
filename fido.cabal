@@ -42,7 +42,6 @@ executable fido
                      , fido
                      , http-types
                      , optparse-applicative
-                     , transformers
                      , wai
                      , warp
   default-language:    Haskell2010
