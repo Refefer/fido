@@ -98,6 +98,7 @@ main = do
     let p = port s
     let gc = g_cache s
     let cg = copyGlobal s
+
     let fss = [FileSystem p z gc cg | Zone p z <- zones s]
     putStrLn $ "Listening on port " ++ show p
     run p (app fss)

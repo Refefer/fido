@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE BangPatterns #-}
 module Lib
     ( bsToChr
     , retrieveUrl
@@ -25,9 +26,10 @@ import Data.Maybe (maybeToList)
 import Data.Monoid ((<>))
 import Data.String (fromString)
 import Network.HTTP.Conduit
-import System.Directory (createDirectoryIfMissing)
+import System.Directory (createDirectoryIfMissing, renameFile)
 import System.FilePath.Posix ((</>), splitFileName)
 import System.Posix.Files (fileExist)
+import System.Random (randomIO)
 
 type URL = String
 data FileSystem = FileSystem { directory  :: FilePath
@@ -87,11 +89,19 @@ checkCaches relPath = do
   checkCopy local base = do
     res <- check base
     case res of
-      Just p -> copyFile (path local) p
+      Just p -> atomicCopy p (path local)
       _      -> return ()
 
     return res
 
+atomicCopy :: FilePath -> FilePath -> IO ()
+atomicCopy from to = do
+  id <- randomIO :: IO Int 
+  let baseDir = fst . splitFileName $ to
+  let tmpPath = baseDir </> ("." ++ show id)
+  copyFile tmpPath from
+  renameFile tmpPath to
+ 
 copyFile :: FilePath -> FilePath -> IO ()
 copyFile to from = do
   createDirectoryIfMissing True (fst . splitFileName $ to)
