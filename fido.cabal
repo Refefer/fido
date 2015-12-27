@@ -27,6 +27,7 @@ library
                      , filepath
                      , http-conduit
                      , mtl
+                     , random
                      , resourcet
                      , system-fileio
                      , unix
