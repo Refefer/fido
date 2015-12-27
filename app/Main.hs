@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import Control.Monad (mapM_)
 import Data.String (IsString)
 import Data.Maybe (fromMaybe)
 import Data.List (isPrefixOf)
@@ -53,7 +54,8 @@ ret404 = responseLBS status404 textPlain "404 - Not Found"
 
 download :: FileSystem -> URL -> IO Response
 download fs path = do
-  inf <- retrieveUrl fs path
+  (inf, logs) <- retrieveUrl fs path
+  mapM_ putStrLn logs
   return $ case inf of
     Just path -> responseFile status200 imageJpeg path Nothing
     Nothing   -> ret404

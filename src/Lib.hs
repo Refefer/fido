@@ -8,8 +8,10 @@ module Lib
     , FileSystem(..)
     ) where
 
+import Control.Concurrent (myThreadId)
 import Control.Monad.Reader
 import Control.Monad.Trans (liftIO, lift)
+import Control.Monad.Writer
 import Control.Exception (catch)
 import Control.Monad.Trans.Resource (runResourceT)
 import Crypto.Hash.MD5 (hash)
@@ -39,25 +41,35 @@ data FileSystem = FileSystem { directory  :: FilePath
                              }
                              deriving (Show, Eq)
 
-newtype App a = App { unApp :: ReaderT FileSystem IO a 
+newtype App a = App { unApp :: ReaderT FileSystem (WriterT [String] IO) a 
                     } deriving (Functor
                                , Applicative
                                , Monad
                                , MonadIO
                                , MonadReader FileSystem
+                               , MonadWriter [String]
                                )
 
-retrieveUrl :: FileSystem -> URL -> IO (Maybe FilePath)
-retrieveUrl fs url = runReaderT (unApp $ retUrl url) fs
+logM :: String -> App ()
+logM msg = do
+  id <- liftIO myThreadId
+  tell [(show id) ++ ": " ++ msg]
+
+retrieveUrl :: FileSystem -> URL -> IO (Maybe FilePath, [String])
+retrieveUrl fs url = runWriterT $ runReaderT (unApp $ retUrl url) fs
 
 retUrl :: URL -> App (Maybe FilePath)
 retUrl url = do
+    logM $ "Checking for url " ++ url
     let (dirname, basename) = hashRelPath url
     let relPath = dirname </> basename
     mCached <- checkCaches relPath
     case mCached of
-      Just path -> return $ Just path
+      Just path -> do
+          logM $ url ++ " already cached"
+          return $ Just path
       Nothing -> do
+          logM $ url ++ " not in cache"
           cdir <- asks directory
           let abspath = cdir </> relPath
           liftIO $ createDirectoryIfMissing True (cdir </> dirname) *>
@@ -73,7 +85,8 @@ checkCaches relPath = do
   liftIO $ do
     cd1 <- check dir
     case cd1 of
-      Just x  -> return $ Just x
+      Just x  -> do
+          return $ Just x
       Nothing -> case rcm of
                   Just rc -> (if share then (checkCopy dir) else check) rc
                   _       -> return Nothing
