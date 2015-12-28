@@ -12,6 +12,7 @@ import Control.Concurrent (myThreadId)
 import Control.Monad.Reader
 import Control.Monad.Trans (liftIO, lift)
 import Control.Monad.Writer
+import Control.Monad.Logger
 import Control.Exception (catch)
 import Control.Monad.Trans.Resource (runResourceT)
 import Crypto.Hash.MD5 (hash)
@@ -26,7 +27,8 @@ import Data.Conduit.Binary (sourceFile, sinkFile, sinkLbs)
 import Data.Conduit
 import Data.Maybe (maybeToList)
 import Data.Monoid ((<>))
-import Data.String (fromString)
+import Data.String (fromString, IsString)
+import Data.Text (pack)
 import Network.HTTP.Conduit
 import System.Directory (createDirectoryIfMissing, renameFile)
 import System.FilePath.Posix ((</>), splitFileName)
@@ -41,22 +43,28 @@ data FileSystem = FileSystem { directory  :: FilePath
                              }
                              deriving (Show, Eq)
 
-newtype App a = App { unApp :: ReaderT FileSystem (WriterT [String] IO) a 
+newtype App a = App { unApp :: ReaderT FileSystem (LoggingT IO) a 
                     } deriving (Functor
                                , Applicative
                                , Monad
                                , MonadIO
                                , MonadReader FileSystem
-                               , MonadWriter [String]
+                               , MonadLogger 
                                )
 
 logM :: String -> App ()
 logM msg = do
-  id <- liftIO myThreadId
-  tell [(show id) ++ ": " ++ msg]
+  tid <- liftIO $ myThreadId
+  logDebugN $ pack $ (show tid) ++ ": " ++ msg
 
-retrieveUrl :: FileSystem -> URL -> IO (Maybe FilePath, [String])
-retrieveUrl fs url = runWriterT $ runReaderT (unApp $ retUrl url) fs
+retrieveUrl :: FileSystem -> Bool -> URL -> IO (Maybe FilePath)
+retrieveUrl fs verbose url = runLogging $ runReaderT (unApp $ retUrl url) fs
+  where
+    f = if verbose 
+        then \_ _ -> True 
+        else \_ ll -> ll > LevelDebug
+
+    runLogging lt = runStderrLoggingT $ filterLogger f lt 
 
 retUrl :: URL -> App (Maybe FilePath)
 retUrl url = do

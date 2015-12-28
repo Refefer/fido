@@ -26,10 +26,12 @@ library
                      , directory
                      , filepath
                      , http-conduit
+                     , monad-logger
                      , mtl
                      , random
                      , resourcet
                      , system-fileio
+                     , text
                      , unix
   default-language:    Haskell2010
 
@@ -43,6 +45,7 @@ executable fido
                      , fido
                      , http-types
                      , optparse-applicative
+                     , mtl
                      , wai
                      , warp
   default-language:    Haskell2010
